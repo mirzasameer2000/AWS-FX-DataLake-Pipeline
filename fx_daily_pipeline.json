@@ -1,0 +1,36 @@
+{
+  "Comment": "Daily FX pipeline: ingest to S3 and refresh Athena partitions",
+  "StartAt": "IngestRates",
+  "States": {
+    "IngestRates": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:590183695950:function:fx_ingest_rates",
+        "Payload": {
+          "date": "latest"
+        }
+      },
+      "ResultPath": "$.ingest",
+      "Next": "RepairPartitions"
+    },
+    "RepairPartitions": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+      "Parameters": {
+        "QueryString": "MSCK REPAIR TABLE fx_lake.fx_rates_raw;",
+        "QueryExecutionContext": {
+          "Database": "fx_lake"
+        },
+        "ResultConfiguration": {
+          "OutputLocation": "s3://fx-lake-sameer-24169956/athena-results/"
+        }
+      },
+      "ResultPath": "$.repair",
+      "Next": "Success"
+    },
+    "Success": {
+      "Type": "Succeed"
+    }
+  }
+}
